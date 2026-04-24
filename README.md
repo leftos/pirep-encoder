@@ -39,4 +39,4 @@ https://github.com/leftos/pirep-encoder/releases/tag/latest
 
 ## Field reference
 
-See `src/PirepEncoder/Assets/field-help.json` for the per-field help text shown in the app, sourced from FAA Form 7110-2.
+Per-field format rules, valid values, and examples are surfaced as inline tooltips on every field in the main window, sourced from FAA Form 7110-2.
