@@ -24,7 +24,6 @@ The main project is pre-configured for self-contained, compressed, single-file p
 ```
 dotnet publish src/PirepEncoder -c Release -r win-x64   -o publish/win-x64
 dotnet publish src/PirepEncoder -c Release -r linux-x64 -o publish/linux-x64
-dotnet publish src/PirepEncoder -c Release -r osx-x64   -o publish/osx-x64
 dotnet publish src/PirepEncoder -c Release -r osx-arm64 -o publish/osx-arm64
 ```
 

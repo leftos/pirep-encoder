@@ -31,10 +31,6 @@ jobs:
             rid: linux-x64
             asset: PirepEncoder-linux-x64
             source: PirepEncoder
-          - os: macos-13
-            rid: osx-x64
-            asset: PirepEncoder-osx-x64
-            source: PirepEncoder
           - os: macos-latest
             rid: osx-arm64
             asset: PirepEncoder-osx-arm64
@@ -116,7 +112,6 @@ jobs:
           |----------|-------|
           | Windows x64 | \`PirepEncoder-win-x64.exe\` |
           | Linux x64   | \`PirepEncoder-linux-x64\` |
-          | macOS x64   | \`PirepEncoder-osx-x64\` |
           | macOS arm64 | \`PirepEncoder-osx-arm64\` |
 
           All binaries are single-file, self-contained — no .NET runtime required on the target machine. On Unix, \`chmod +x\` before running.
