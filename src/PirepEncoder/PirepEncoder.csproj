@@ -12,8 +12,8 @@
     <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <PropertyGroup Label="Single-file self-contained publish defaults (win-x64)">
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  <PropertyGroup Label="Single-file self-contained publish defaults">
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

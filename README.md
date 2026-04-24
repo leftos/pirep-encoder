@@ -17,20 +17,25 @@ dotnet run --project src/PirepEncoder
 dotnet test
 ```
 
-## Release: single-file Windows .exe
+## Release: single-file binaries
 
-The main project is pre-configured for self-contained single-file publish to `win-x64`. One command produces a standalone `PirepEncoder.exe` with no .NET runtime prerequisite on the target machine:
-
-```
-dotnet publish src/PirepEncoder -c Release -o publish
-```
-
-Output: `publish/PirepEncoder.exe` (ready-to-run, compressed, all native libs embedded).
-
-To target a different architecture:
+The main project is pre-configured for self-contained, compressed, single-file publish. Each invocation produces a standalone executable with no .NET runtime prerequisite on the target machine.
 
 ```
-dotnet publish src/PirepEncoder -c Release -r win-arm64 -o publish
+dotnet publish src/PirepEncoder -c Release -r win-x64   -o publish/win-x64
+dotnet publish src/PirepEncoder -c Release -r linux-x64 -o publish/linux-x64
+dotnet publish src/PirepEncoder -c Release -r osx-x64   -o publish/osx-x64
+dotnet publish src/PirepEncoder -c Release -r osx-arm64 -o publish/osx-arm64
+```
+
+Each output directory contains a single binary (`PirepEncoder.exe` on Windows, `PirepEncoder` elsewhere).
+
+### Rolling "latest" release on GitHub
+
+Pushes to `main` trigger the `.github/workflows/release.yml` workflow, which builds all four RIDs above, replaces the `latest` tag/prerelease on GitHub, and attaches the binaries. The rolling release is always downloadable from:
+
+```
+https://github.com/leftos/pirep-encoder/releases/tag/latest
 ```
 
 ## Field reference

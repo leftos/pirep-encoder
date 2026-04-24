@@ -1,20 +1,290 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PirepEncoder.ViewModels"
+        xmlns:m="using:PirepEncoder.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="780"
         x:Class="PirepEncoder.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="PirepEncoder">
+        Title="PIREP Encoder"
+        Width="960" Height="820"
+        MinWidth="760" MinHeight="640">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+    <Window.Styles>
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="Width" Value="140" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontFamily" Value="Consolas,Cascadia Mono,Menlo,monospace" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="TextBlock.SectionHeader">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,12,0,6" />
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+        <Style Selector="Border.FieldRow">
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="Border.FieldRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
+        </Style>
+        <Style Selector="TextBox.Mono">
+            <Setter Property="FontFamily" Value="Consolas,Cascadia Mono,Menlo,monospace" />
+        </Style>
+        <Style Selector="Button.Icon">
+            <Setter Property="MinWidth" Value="32" />
+            <Setter Property="Padding" Value="6,2" />
+        </Style>
+    </Window.Styles>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <DockPanel LastChildFill="True">
+        <!-- Top toolbar -->
+        <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="PIREP Encoder" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="FAA Form 7110-2" Opacity="0.6" VerticalAlignment="Center" FontSize="12" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Content="Settings…" Click="OnOpenSettingsClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
 
+        <!-- Status strip -->
+        <Border DockPanel.Dock="Bottom" Padding="12,4" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <TextBlock Text="{Binding StatusMessage}" Opacity="0.85" FontSize="12" />
+        </Border>
+
+        <!-- Encoded output strip -->
+        <Border DockPanel.Dock="Bottom" Padding="12,10" Background="{DynamicResource SystemControlBackgroundBaseLowBrush}" BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}" BorderThickness="0,1,0,0">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0" Text="Encoded:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" />
+                    <TextBox Grid.Column="1" Classes="Mono" Text="{Binding Pirep.EncodedOutput, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="40" />
+                </Grid>
+                <TextBlock Text="{Binding Pirep.ErrorSummary}" Foreground="{DynamicResource SystemErrorTextColor}" FontSize="12"
+                           IsVisible="{Binding Pirep.ErrorSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Copy" Command="{Binding CopyCommand}" />
+                    <Button Content="Save draft" Command="{Binding SaveDraftCommand}" />
+                    <Button Content="Reset" Command="{Binding ResetCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Main form + decode pane -->
+        <Grid ColumnDefinitions="*,1,320">
+            <ScrollViewer Grid.Column="0" Padding="16">
+                <StackPanel Spacing="4">
+                    <!-- Header block: report type + SA identifier -->
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,*">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Report type" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                <RadioButton GroupName="ReportType" Content="Routine (UA)" IsChecked="{Binding Pirep.ReportType, Converter={x:Static vm:EnumEqualsConverter.Instance}, ConverterParameter={x:Static m:ReportType.Routine}}" ToolTip.Tip="Use UA for routine pilot weather reports." />
+                                <RadioButton GroupName="ReportType" Content="Urgent (UUA)" IsChecked="{Binding Pirep.ReportType, Converter={x:Static vm:EnumEqualsConverter.Instance}, ConverterParameter={x:Static m:ReportType.Urgent}}" ToolTip.Tip="UUA is required for: tornadoes, severe/extreme turbulence, severe icing, hail, low-level wind shear, volcanic ash, or any weather hazardous to flight." />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Classes="FieldRow" IsVisible="{Binding Pirep.ReportType, Converter={x:Static vm:EnumEqualsConverter.Instance}, ConverterParameter={x:Static m:ReportType.Urgent}}">
+                        <TextBlock Text="UUA criteria: tornadoes / funnel clouds, severe+ turbulence, severe icing, hail, LLWS, volcanic ash, or any phenomenon hazardous to flight." TextWrapping="Wrap" Foreground="#B48A00" FontSize="12" />
+                    </Border>
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,*">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="SA identifier" ToolTip.Tip="3-letter identifier of the transmitting facility. Prefix can be toggled in Settings." />
+                            <TextBox Grid.Column="1" Width="90" Text="{Binding Pirep.SaIdentifier}" Classes="Mono" MaxLength="3" />
+                            <TextBlock Grid.Column="2" Text="Prefix is controlled from Settings (currently on/off)." Opacity="0.5" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="11" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Required section -->
+                    <TextBlock Text="Required (items 1–5)" Classes="SectionHeader" />
+
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,*,Auto">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="/OV  Location" ToolTip.Tip="3-letter NAVAID idents. Single fix, fix with radial/distance (6 digits), or fix-to-fix chain with hyphens. Examples: ABC / ABC 090025 / ABC-DEF / ABC 045020-DEF-GHI." />
+                            <ItemsControl Grid.Column="1" ItemsSource="{Binding Pirep.Locations}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="vm:LocationSegmentViewModel">
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" Margin="0,2">
+                                            <TextBox Grid.Column="0" Width="70" Classes="Mono" Text="{Binding Fix}" MaxLength="3" PlaceholderText="ABC" />
+                                            <TextBox Grid.Column="1" Width="100" Margin="6,0,0,0" Classes="Mono" Text="{Binding RadialDistance}" MaxLength="6" PlaceholderText="rrrddd" ToolTip.Tip="Optional radial + distance, 6 digits total (e.g. 090025 = 090° radial, 25 nm)." />
+                                            <Button Grid.Column="2" Classes="Icon" Margin="6,0,0,0" Content="✕"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Pirep.RemoveLocationSegmentCommand}"
+                                                    CommandParameter="{Binding}" ToolTip.Tip="Remove segment" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Grid.Column="2" Classes="Icon" Content="+ fix" VerticalAlignment="Top" Margin="8,0,0,0" Command="{Binding Pirep.AddLocationSegmentCommand}" ToolTip.Tip="Append a fix-to-fix segment" />
+                        </Grid>
+                    </Border>
+
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,Auto,*">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="/TM  Time (UTC)" ToolTip.Tip="Exactly 4 digits UTC, e.g. 0915 or 1315." />
+                            <TextBox Grid.Column="1" Width="80" Text="{Binding Pirep.Time}" Classes="Mono" MaxLength="4" PlaceholderText="hhmm" />
+                            <Button Grid.Column="2" Classes="Icon" Margin="8,0,0,0" Content="Now" Command="{Binding Pirep.InsertNowAsTimeCommand}" ToolTip.Tip="Insert current UTC time (hhmm)" />
+                        </Grid>
+                    </Border>
+
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,Auto,*">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="/FL  Altitude" ToolTip.Tip="3 digits, hundreds of feet: 095 means 9,500 ft, 160 means 16,000 ft. Check Unknown to output UNKN." />
+                            <TextBox Grid.Column="1" Width="70" Text="{Binding Pirep.FlightLevel}" Classes="Mono" MaxLength="3" PlaceholderText="nnn" IsEnabled="{Binding !Pirep.FlightLevelUnknown}" />
+                            <CheckBox Grid.Column="2" Margin="10,0,0,0" Content="Unknown" IsChecked="{Binding Pirep.FlightLevelUnknown}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,Auto,*">
+                            <TextBlock Grid.Column="0" Classes="FieldLabel" Text="/TP  Aircraft" ToolTip.Tip="Aircraft type designator, up to 4 characters (e.g. B738, C172, PA32). Check Unknown to output UNKN." />
+                            <TextBox Grid.Column="1" Width="90" Text="{Binding Pirep.AircraftType}" Classes="Mono" MaxLength="4" PlaceholderText="B738" IsEnabled="{Binding !Pirep.AircraftTypeUnknown}" />
+                            <CheckBox Grid.Column="2" Margin="10,0,0,0" Content="Unknown" IsChecked="{Binding Pirep.AircraftTypeUnknown}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Optional section -->
+                    <TextBlock Text="Optional (items 6–12, check to include)" Classes="SectionHeader" />
+
+                    <!-- /SK -->
+                    <Border Classes="FieldRow">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="140,Auto,Auto,*">
+                                <CheckBox Grid.Column="0" Content="/SK  Sky" IsChecked="{Binding Pirep.IncludeSky}" ToolTip.Tip="Cloud layers: base (hundreds of feet or UNKN), cover (SKC/FEW/SCT/BKN/OVC/OVX), and optional tops." />
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Pirep.SkyUseRaw}" OnContent="raw" OffContent="builder" IsEnabled="{Binding Pirep.IncludeSky}" Margin="8,0,0,0" />
+                                <Button Grid.Column="2" Classes="Icon" Margin="8,0,0,0" Content="+ layer" Command="{Binding Pirep.AddCloudLayerCommand}" IsEnabled="{Binding Pirep.IncludeSky}" IsVisible="{Binding !Pirep.SkyUseRaw}" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Pirep.CloudLayers}" IsEnabled="{Binding Pirep.IncludeSky}" IsVisible="{Binding !Pirep.SkyUseRaw}" Margin="140,0,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="vm:CloudLayerViewModel">
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" Margin="0,2">
+                                            <TextBox Grid.Column="0" Width="70" Classes="Mono" Text="{Binding Base}" MaxLength="4" PlaceholderText="base" ToolTip.Tip="Cloud base in hundreds of feet, or UNKN." />
+                                            <ComboBox Grid.Column="1" Width="80" Margin="6,0,0,0" ItemsSource="{x:Static vm:PirepViewModel.SkyCoverChoices}" SelectedItem="{Binding Cover}" />
+                                            <TextBox Grid.Column="2" Width="70" Margin="6,0,0,0" Classes="Mono" Text="{Binding Tops}" MaxLength="4" PlaceholderText="tops" ToolTip.Tip="Optional tops in hundreds of feet." />
+                                            <Button Grid.Column="3" Classes="Icon" Margin="6,0,0,0" Content="✕"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).Pirep.RemoveCloudLayerCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBox Text="{Binding Pirep.SkyRaw}" Classes="Mono" IsEnabled="{Binding Pirep.IncludeSky}" IsVisible="{Binding Pirep.SkyUseRaw}" PlaceholderText="e.g. 055 SCT 073/085 BKN 105" Margin="140,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- /WX -->
+                    <Border Classes="FieldRow">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="140,Auto,*">
+                                <CheckBox Grid.Column="0" Content="/WX  Weather" IsChecked="{Binding Pirep.IncludeWeather}" ToolTip.Tip="Flight visibility (FVnn) and weather contractions (R, TRW, H, etc.). Intensity is not reported." />
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Pirep.WeatherUseRaw}" OnContent="raw" OffContent="builder" IsEnabled="{Binding Pirep.IncludeWeather}" Margin="8,0,0,0" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,*" IsEnabled="{Binding Pirep.IncludeWeather}" IsVisible="{Binding !Pirep.WeatherUseRaw}" Margin="140,0,0,0">
+                                <TextBlock Grid.Column="0" Text="FV" VerticalAlignment="Center" FontFamily="Consolas" />
+                                <NumericUpDown Grid.Column="1" Width="100" Margin="4,0,0,0" Minimum="0" Maximum="99" FormatString="00" Value="{Binding Pirep.WeatherFlightVisSm}" ToolTip.Tip="Flight visibility in statute miles (2 digits)." />
+                                <TextBox Grid.Column="2" Margin="10,0,0,0" Classes="Mono" Text="{Binding Pirep.WeatherContractions}" PlaceholderText="contractions (space-separated): R H TRW …" />
+                            </Grid>
+                            <TextBox Text="{Binding Pirep.WeatherRaw}" Classes="Mono" IsEnabled="{Binding Pirep.IncludeWeather}" IsVisible="{Binding Pirep.WeatherUseRaw}" PlaceholderText="e.g. FV02 R H" Margin="140,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- /TA -->
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,*">
+                            <CheckBox Grid.Column="0" Content="/TA  Temp (°C)" IsChecked="{Binding Pirep.IncludeTemperature}" ToolTip.Tip="Outside air temperature in degrees Celsius. Negative values are encoded with a hyphen prefix (e.g. -06)." />
+                            <NumericUpDown Grid.Column="1" Width="120" Minimum="-99" Maximum="99" Value="{Binding Pirep.TemperatureC}" IsEnabled="{Binding Pirep.IncludeTemperature}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- /WV -->
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,Auto,Auto,Auto,Auto,*">
+                            <CheckBox Grid.Column="0" Content="/WV  Wind" IsChecked="{Binding Pirep.IncludeWind}" ToolTip.Tip="Wind direction (°true) and speed (kt) as six digits: dddsss. e.g. 270045 = 270° at 45 kt." />
+                            <TextBlock Grid.Column="1" Text="dir" VerticalAlignment="Center" Margin="0,0,4,0" Opacity="0.6" />
+                            <NumericUpDown Grid.Column="2" Width="110" Minimum="0" Maximum="360" Value="{Binding Pirep.WindDirection}" IsEnabled="{Binding Pirep.IncludeWind}" />
+                            <TextBlock Grid.Column="3" Text="kt" VerticalAlignment="Center" Margin="10,0,4,0" Opacity="0.6" />
+                            <NumericUpDown Grid.Column="4" Width="110" Minimum="0" Maximum="999" Value="{Binding Pirep.WindSpeedKt}" IsEnabled="{Binding Pirep.IncludeWind}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- /TB -->
+                    <Border Classes="FieldRow">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="140,Auto,*">
+                                <CheckBox Grid.Column="0" Content="/TB  Turbulence" IsChecked="{Binding Pirep.IncludeTurbulence}" ToolTip.Tip="Intensity (LGT/LGT-MOD/MOD/MOD-SVR/SVR/EXTRM), type (CAT or CHOP), and optional altitude band (only if different from /FL)." />
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Pirep.TurbulenceUseRaw}" OnContent="raw" OffContent="builder" IsEnabled="{Binding Pirep.IncludeTurbulence}" Margin="8,0,0,0" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsEnabled="{Binding Pirep.IncludeTurbulence}" IsVisible="{Binding !Pirep.TurbulenceUseRaw}" Margin="140,0,0,0">
+                                <ComboBox Grid.Column="0" Width="130" ItemsSource="{x:Static vm:PirepViewModel.TurbulenceIntensityChoices}" SelectedItem="{Binding Pirep.TurbulenceIntensity}" />
+                                <ComboBox Grid.Column="1" Width="100" Margin="6,0,0,0" ItemsSource="{x:Static vm:PirepViewModel.TurbulenceTypeChoices}" SelectedItem="{Binding Pirep.TurbulenceType}" />
+                                <TextBox Grid.Column="2" Width="140" Margin="6,0,0,0" Classes="Mono" Text="{Binding Pirep.TurbulenceAltitudeBand}" PlaceholderText="BLO-090 / 080-120" ToolTip.Tip="Optional altitude band: BLO-nnn, nnn-nnn, or ABV-nnn. Omit if same as /FL." />
+                            </Grid>
+                            <TextBox Text="{Binding Pirep.TurbulenceRaw}" Classes="Mono" IsEnabled="{Binding Pirep.IncludeTurbulence}" IsVisible="{Binding Pirep.TurbulenceUseRaw}" PlaceholderText="e.g. LGT-MOD CAT BLO-090" Margin="140,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- /IC -->
+                    <Border Classes="FieldRow">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="140,Auto,*">
+                                <CheckBox Grid.Column="0" Content="/IC  Icing" IsChecked="{Binding Pirep.IncludeIcing}" ToolTip.Tip="Intensity (TRACE/LGT/LGT-MDT/MDT/MDT-SVR/SVR), type (RIME/CLR/MX), and optional altitude band (only if different from /FL)." />
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding Pirep.IcingUseRaw}" OnContent="raw" OffContent="builder" IsEnabled="{Binding Pirep.IncludeIcing}" Margin="8,0,0,0" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsEnabled="{Binding Pirep.IncludeIcing}" IsVisible="{Binding !Pirep.IcingUseRaw}" Margin="140,0,0,0">
+                                <ComboBox Grid.Column="0" Width="130" ItemsSource="{x:Static vm:PirepViewModel.IcingIntensityChoices}" SelectedItem="{Binding Pirep.IcingIntensity}" />
+                                <ComboBox Grid.Column="1" Width="100" Margin="6,0,0,0" ItemsSource="{x:Static vm:PirepViewModel.IcingTypeChoices}" SelectedItem="{Binding Pirep.IcingType}" />
+                                <TextBox Grid.Column="2" Width="140" Margin="6,0,0,0" Classes="Mono" Text="{Binding Pirep.IcingAltitudeBand}" PlaceholderText="028-045" />
+                            </Grid>
+                            <TextBox Text="{Binding Pirep.IcingRaw}" Classes="Mono" IsEnabled="{Binding Pirep.IncludeIcing}" IsVisible="{Binding Pirep.IcingUseRaw}" PlaceholderText="e.g. SVR CLR 028-045" Margin="140,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- /RM -->
+                    <Border Classes="FieldRow">
+                        <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto">
+                            <CheckBox Grid.Column="0" Grid.Row="0" Content="/RM  Remarks" IsChecked="{Binding Pirep.IncludeRemarks}" ToolTip.Tip="Free-form clarifying text. Put the most hazardous element first. Example: LLWS -15KT SFC-003 DURGC RNWY 22 JFK." />
+                            <TextBox Grid.Column="1" Grid.Row="0" Classes="Mono" Text="{Binding Pirep.Remarks}" IsEnabled="{Binding Pirep.IncludeRemarks}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40" PlaceholderText="most hazardous element first" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Rectangle Grid.Column="1" Fill="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Width="1" />
+
+            <!-- Right side: Decode + Drafts -->
+            <ScrollViewer Grid.Column="2" Padding="12">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Paste &amp; decode" FontWeight="SemiBold" />
+                    <TextBox Classes="Mono" Text="{Binding DecodeInput}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" PlaceholderText="Paste an encoded PIREP here, e.g.&#x0A;UA /OV BOS/TM 1315/FL160/TP PA60" />
+                    <Button Content="Decode → form" Command="{Binding DecodeCommand}" HorizontalAlignment="Stretch" />
+                    <TextBlock Text="{Binding DecodeWarnings}" FontSize="11" TextWrapping="Wrap" Foreground="#B48A00"
+                               IsVisible="{Binding DecodeWarnings, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                    <Rectangle Height="1" Fill="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Margin="0,6" />
+
+                    <TextBlock Text="Drafts" FontWeight="SemiBold" />
+                    <ListBox ItemsSource="{Binding Drafts}" MaxHeight="320">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="vm:DraftEntryViewModel">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}" FontSize="12" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Classes="Icon" Content="Load"
+                                            Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).LoadDraftCommand}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Grid.Column="2" Classes="Icon" Margin="4,0,0,0" Content="✕"
+                                            Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).DeleteDraftCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
 </Window>
