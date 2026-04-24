@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+
+# Rider / VS
+.idea/
+.vs/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# Local temp
+.tmp/
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# User local settings
+appsettings.Local.json

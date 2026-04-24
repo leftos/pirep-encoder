@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PirepEncoder/PirepEncoder.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PirepEncoder.Tests/PirepEncoder.Tests.csproj" />
+  </Folder>
+</Solution>
