@@ -23,30 +23,7 @@ Avalonia XAML warnings (`AVLN####`) do **not** honor `TreatWarningsAsErrors`, so
 
 The architecture entry point is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Task Index, layers, integration footguns, test locations and the deep docs.
 
-Three layers with strict, enforced separation:
-
-1. **`Models/`** — plain `record` types. No logic beyond defaults. Raw and structured forms coexist on `Pirep` (e.g. both `SkyCover` layers *and* `SkyCoverRaw` string) to support the UI's hybrid builder/raw toggle.
-
-2. **`Services/`** — pure, framework-free functions. No Avalonia, no UI references. Anything that formats, parses, validates, or persists lives here and is fully unit-tested in isolation.
-   - `PirepFormatter.Format(Pirep, AppSettings)` — canonical encoder. Per-field `Resolve*` helpers prefer the raw override string when set, else format from the structured model. The SA identifier prefix is applied here at format time only; it's never baked into the model's encoded form.
-   - `PirepParser.Parse(string)` — tolerant decoder returning `(Pirep, IReadOnlyList<ParseWarning>)`. Splits on a regex of known two-letter codes (`OV TM FL TP SK WX TA WV TB IC RM`) so inner `/` separators inside `/SK` don't confuse it.
-   - `PirepValidator.Validate(Pirep)` — per-field rules; returns errors keyed by field so the VM can surface inline messages.
-   - `SettingsStore` / `DraftStore` — JSON persistence to `%APPDATA%/PirepEncoder/` (or platform equivalent via `SpecialFolder.ApplicationData`). `DraftStore` caps at 50 entries, newest first.
-
-3. **`ViewModels/` + `Views/`** — Avalonia MVVM with CommunityToolkit.Mvvm source generators. `ViewLocator` maps `FooViewModel` → `FooView` by convention.
-
-### The `PirepViewModel` change-propagation model
-
-`EncodedOutput`, `Errors`, and `ErrorSummary` are **computed** properties, not backed fields. The VM subscribes to its own `PropertyChanged` event and, on any field change, calls `BubbleOutput()` which re-raises notifications for those three. Child collections (`Locations`, `CloudLayers`) and each child VM's `PropertyChanged` are also wired into `BubbleOutput()`. The `_loading` guard suppresses re-bubbling while `LoadFromModel` / `Reset` repopulate the form — otherwise every assignment would re-render the preview mid-load.
-
-### Hybrid builder/raw toggle (for /SK /WX /TB /IC)
-
-Each hybrid field has three VM properties:
-- `IncludeX` — is this field in the output at all?
-- `XUseRaw` — builder mode vs raw-text mode?
-- Structured state (e.g. `CloudLayers`, `TurbulenceIntensity`) **and** `XRaw` string.
-
-On the model side, `Pirep` holds both the structured form and a nullable `XRaw`. `PirepFormatter`'s `Resolve*` helpers prefer `XRaw` when set — so flipping the UI to raw mode just populates that string and the structured data is ignored. Flipping back to builder mode attempts to parse the raw; failure leaves the UI in raw mode with a hint.
+Never bake the SA identifier prefix into the `Pirep` model; `PirepFormatter.Format` applies it at format time only.
 
 ## PIREP format gotchas (FAA Form 7110-2)
 

@@ -1,6 +1,6 @@
 # PIREP Encoder — architecture
 
-A single-project Avalonia 12 / .NET 10 desktop app that encodes and decodes FAA Form 7110-2 pilot weather reports (PIREPs). Three layers in one assembly (`src/PirepEncoder/`): `Models/` (records), `Services/` (pure encode, decode, validate and persist logic) and `ViewModels/` + `Views/` (MVVM). The rule that shapes it: `Services/` has no Avalonia or UI references, so everything that formats, parses or validates is unit-tested in isolation. The repo has no `docs/` folder and no glossary yet; `CLAUDE.md` carries the format gotchas.
+A single-project Avalonia 12 / .NET 10 desktop app that encodes and decodes FAA Form 7110-2 pilot weather reports (PIREPs). Three layers in one assembly (`src/PirepEncoder/`): `Models/` (records), `Services/` (pure encode, decode, validate and persist logic) and `ViewModels/` + `Views/` (MVVM). The rule that shapes it: `Services/` has no Avalonia or UI references, so everything that formats, parses or validates is unit-tested in isolation. The repo has no glossary yet; `CLAUDE.md` carries the format gotchas.
 
 ## Task Index
 
@@ -9,7 +9,7 @@ A single-project Avalonia 12 / .NET 10 desktop app that encodes and decodes FAA 
 | Change how a field is encoded (spacing, padding, order) | `src/PirepEncoder/Services/PirepFormatter.cs` → the field's `*Formatter.cs` beside it → `tests/PirepEncoder.Tests/FormatterTests.cs` | [`CLAUDE.md`](../CLAUDE.md) (format gotchas) |
 | Change how a pasted PIREP is decoded | `src/PirepEncoder/Services/PirepParser.cs` → `tests/PirepEncoder.Tests/ParserTests.cs` → `tests/PirepEncoder.Tests/RoundTripTests.cs` | [`CLAUDE.md`](../CLAUDE.md) |
 | Change a validation rule | `src/PirepEncoder/Services/PirepValidator.cs` → `tests/PirepEncoder.Tests/ValidatorTests.cs` | none |
-| Add a field to the PIREP | `src/PirepEncoder/Models/Pirep.cs` → `Services/PirepFormatter.cs` → `Services/PirepParser.cs` → `Services/PirepValidator.cs` → `ViewModels/PirepViewModel.cs` (`ToModel` and `LoadFromModel`) → `Views/MainWindow.axaml` → tests in all four test files | [`CLAUDE.md`](../CLAUDE.md) (hybrid builder/raw toggle) |
+| Add a field to the PIREP | `src/PirepEncoder/Models/Pirep.cs` → `Services/PirepFormatter.cs` → `Services/PirepParser.cs` → `Services/PirepValidator.cs` → `ViewModels/PirepViewModel.cs` (`ToModel` and `LoadFromModel`) → `Views/MainWindow.axaml` → tests in all four test files | [Layers](#layers) (hybrid builder/raw fields) |
 | Add a structured sub-field to /SK /WX /TB /IC | the matching `Models/*.cs` (`CloudLayer.cs`, `SkyCover.cs`, `Weather.cs`, `Turbulence.cs`, `Icing.cs`) → its `Services/*Formatter.cs` → the `TryParse*` method in `Services/PirepParser.cs` → `ViewModels/PirepViewModel.cs` | [`CLAUDE.md`](../CLAUDE.md) |
 | Change the location (/OV) format | `src/PirepEncoder/Models/Location.cs` → `Services/LocationFormatter.cs` → `ParseLocation` in `Services/PirepParser.cs` → `ViewModels/LocationSegmentViewModel.cs` | [`CLAUDE.md`](../CLAUDE.md) |
 | Change a form control, tooltip or layout | `src/PirepEncoder/Views/MainWindow.axaml` → `ViewModels/PirepViewModel.cs` | none |
@@ -20,8 +20,12 @@ A single-project Avalonia 12 / .NET 10 desktop app that encodes and decodes FAA 
 ## Layers
 
 - **`Models/`** (`src/PirepEncoder/Models/`): plain records (`Pirep`, `Location`, `CloudLayer`, `Weather`, `Turbulence`, `Icing`, `AppSettings`) and enums (`ReportType`, `SkyCover`). No logic beyond defaults. `Pirep` holds both the structured form and a nullable `*Raw` string for /SK /WX /TB /IC. References nothing.
-- **`Services/`** (`src/PirepEncoder/Services/`): pure, framework-free functions. `PirepFormatter` (encode), `PirepParser` (tolerant decode returning `ParseResult` with `ParseWarning`s), `PirepValidator` (errors keyed by field), per-field formatters, and JSON persistence in `SettingsStore` and `DraftStore` (paths in `StorageLocations`, under the user's ApplicationData folder). References `Models/`; never Avalonia or `ViewModels/`.
+- **`Services/`** (`src/PirepEncoder/Services/`): pure, framework-free functions. `PirepFormatter` (encode), `PirepParser` (tolerant decode returning `ParseResult` with `ParseWarning`s), `PirepValidator` (errors keyed by field), per-field formatters, and JSON persistence in `SettingsStore` and `DraftStore` (paths in `StorageLocations`, under the user's ApplicationData folder; `DraftStore.MaxDrafts` caps drafts at 50, newest first). References `Models/`; never Avalonia or `ViewModels/`.
+  - `PirepFormatter`'s `ResolveSky`, `ResolveWeather`, `ResolveTurbulence` and `ResolveIcing` prefer the trimmed `*Raw` string when it is set, else format from the structured model. The SA identifier prefix (`AppSettings.PrefixWithSaIdentifier`) is applied in `PirepFormatter.Format` only; it is never stored in the `Pirep`.
+  - `PirepParser` splits the input on `FieldCodeRegex`, a regex of the known two-letter field codes, so the inner `/` separators inside `/SK` do not start a new field.
 - **`ViewModels/`** (`src/PirepEncoder/ViewModels/`): CommunityToolkit.Mvvm view models. `PirepViewModel` owns the form state and exposes `ToModel()` / `LoadFromModel()`; `EncodedOutput`, `Errors` and `ErrorSummary` are computed from `ToModel()` through `Services/`. `MainWindowViewModel` wires drafts, settings and paste-to-decode. References `Models/` and `Services/`.
+  - Change propagation: `PirepViewModel` handles its own `PropertyChanged` (`OnAnyPropertyChanged`) and calls `BubbleOutput()`, which re-raises the three computed properties. The `Locations` and `CloudLayers` collections and each child view model's `PropertyChanged` feed the same call. The `_loading` guard suppresses it while `LoadFromModel` and `Reset` repopulate the form.
+  - Hybrid builder/raw fields (/SK /WX /TB /IC): each has an `IncludeX` flag (in the output at all), an `XUseRaw` flag (builder or raw text), the structured state and an `XRaw` string. `ToModel()` fills only `XRaw` on the `Pirep` when `XUseRaw` is set, else the structured form. Switching sky to raw pre-fills `SkyRaw` from the current cloud layers.
 - **`Views/`** and `ViewLocator.cs` (`src/PirepEncoder/`): Avalonia XAML windows (`MainWindow`, `SettingsWindow`). `ViewLocator` maps `FooViewModel` to `FooView` by replacing the name in the type's full name. References `ViewModels/`.
 - **`tests/PirepEncoder.Tests/`**: xUnit + FluentAssertions, references the app project. Covers `Services/` only.
 
@@ -45,5 +49,5 @@ A single-project Avalonia 12 / .NET 10 desktop app that encodes and decodes FAA 
 
 ## Deep docs
 
-- [`CLAUDE.md`](../CLAUDE.md): commands, the three-layer split, the `PirepViewModel` change-propagation model, the hybrid builder/raw toggle, FAA format gotchas, CI and releases.
+- [`CLAUDE.md`](../CLAUDE.md): commands, FAA format gotchas, CI and releases.
 - [`README.md`](../README.md): build, test and single-file publish commands, the rolling `latest` release.
