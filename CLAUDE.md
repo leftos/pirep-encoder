@@ -21,6 +21,8 @@ Avalonia XAML warnings (`AVLN####`) do **not** honor `TreatWarningsAsErrors`, so
 
 ## Architecture
 
+The architecture entry point is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Task Index, layers, integration footguns, test locations and the deep docs.
+
 Three layers with strict, enforced separation:
 
 1. **`Models/`** — plain `record` types. No logic beyond defaults. Raw and structured forms coexist on `Pirep` (e.g. both `SkyCover` layers *and* `SkyCoverRaw` string) to support the UI's hybrid builder/raw toggle.
